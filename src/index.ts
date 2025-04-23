@@ -89,29 +89,10 @@ app.get("/", (c) => {
           padding: 15px;
           border-top: 1px solid #e2e8f0;
         }
-        .message-input {
-          flex: 1;
-          padding: 10px;
-          border: 1px solid #e2e8f0;
-          border-radius: 5px;
-          margin-right: 10px;
-        }
-        .send-button {
-          background-color: #4299e1;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          padding: 10px 15px;
-          cursor: pointer;
-        }
-        .send-button:hover {
-          background-color: #3182ce;
-        }
         .emoji-keyboard {
           display: grid;
           grid-template-columns: repeat(10, 1fr);
           gap: 5px;
-          margin-bottom: 10px;
           background-color: #f9fafc;
           padding: 10px;
           border-radius: 5px;
@@ -184,7 +165,7 @@ app.get("/", (c) => {
           margin: 10px 0;
         }
         .tabs {
-          display: flex;
+          display: none;
           margin-bottom: 20px;
         }
         .tab {
@@ -199,7 +180,7 @@ app.get("/", (c) => {
           color: white;
         }
         .tab-content {
-          display: none;
+          display: block;
         }
         .tab-content.active {
           display: block;
@@ -210,12 +191,7 @@ app.get("/", (c) => {
       <div class="container">
         <h1>HONC Chat App</h1>
         
-        <div class="tabs">
-          <div class="tab active" data-tab="waitingRoom">Find a Chat Partner</div>
-          <div class="tab" data-tab="joinRoom">Join Specific Room</div>
-        </div>
-        
-        <div id="waitingRoomTab" class="tab-content active">
+        <div id="waitingRoomTab" class="tab-content">
           <div class="waiting-room">
             <h2>Waiting Room</h2>
             <p>Looking for a chat partner... Please wait while we pair you with someone.</p>
@@ -225,14 +201,6 @@ app.get("/", (c) => {
               <p id="waitingMessage">Please wait to be paired with someone...</p>
             </div>
             <button id="joinWaitingRoomButton" class="join-button" style="display: none;">Join Waiting Room</button>
-          </div>
-        </div>
-        
-        <div id="joinRoomTab" class="tab-content">
-          <div id="roomSelector" class="room-selector">
-            <h2>Join a Specific Chat Room</h2>
-            <input type="text" id="roomInput" class="room-input" placeholder="Enter room name">
-            <button id="joinButton" class="join-button">Join Room</button>
           </div>
         </div>
         
@@ -269,10 +237,6 @@ app.get("/", (c) => {
               <button class="emoji-btn" data-emoji="💯">💯</button>
               <button class="emoji-btn" data-emoji="🙏">🙏</button>
             </div>
-            <div class="input-container">
-              <input type="text" id="messageInput" class="message-input" placeholder="Type a message...">
-              <button id="sendButton" class="send-button">Send</button>
-            </div>
           </div>
         </div>
       </div>
@@ -282,16 +246,10 @@ app.get("/", (c) => {
         const tabs = document.querySelectorAll('.tab');
         const tabContents = document.querySelectorAll('.tab-content');
         const waitingRoomTab = document.getElementById('waitingRoomTab');
-        const joinRoomTab = document.getElementById('joinRoomTab');
-        const roomSelector = document.getElementById('roomSelector');
         const chatApp = document.getElementById('chatApp');
-        const roomInput = document.getElementById('roomInput');
-        const joinButton = document.getElementById('joinButton');
         const roomName = document.getElementById('roomName');
         const connectionStatus = document.getElementById('connectionStatus');
         const chatMessages = document.getElementById('chatMessages');
-        const messageInput = document.getElementById('messageInput');
-        const sendButton = document.getElementById('sendButton');
         const joinWaitingRoomButton = document.getElementById('joinWaitingRoomButton');
         const waitingStatus = document.getElementById('waitingStatus');
         const positionNumber = document.getElementById('positionNumber');
@@ -304,27 +262,8 @@ app.get("/", (c) => {
         let userName = 'User-' + Math.floor(Math.random() * 1000);
         let userId = Math.floor(Math.random() * 10000).toString();
         
-        // Tab switching
-        tabs.forEach(tab => {
-          tab.addEventListener('click', () => {
-            // Remove active class from all tabs and contents
-            tabs.forEach(t => t.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
-            
-            // Add active class to clicked tab and corresponding content
-            tab.classList.add('active');
-            const tabId = tab.getAttribute('data-tab') + 'Tab';
-            document.getElementById(tabId).classList.add('active');
-          });
-        });
-        
         // Event Listeners
-        joinButton.addEventListener('click', joinRoom);
         joinWaitingRoomButton.addEventListener('click', joinWaitingRoom);
-        sendButton.addEventListener('click', sendMessage);
-        messageInput.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') sendMessage();
-        });
         
         // Set up emoji keyboard
         document.querySelectorAll('.emoji-btn').forEach(btn => {
@@ -407,26 +346,17 @@ app.get("/", (c) => {
           };
         }
         
-        // Join a specific room (used both for manual joining and pairing)
+        // Join a specific room (used for pairing)
         function joinSpecificRoom(roomId, partnerName) {
           currentRoom = roomId;
           roomName.textContent = partnerName ? 'Chat with: ' + partnerName : 'Room: ' + roomId;
           
-          // Hide tabs and show chat
+          // Hide waiting room and show chat
           waitingRoomTab.style.display = 'none';
-          joinRoomTab.style.display = 'none';
           chatApp.style.display = 'block';
           
           // Connect to WebSocket for the chat room
           connectWebSocket(roomId);
-        }
-        
-        // Manual room joining
-        function joinRoom() {
-          const room = roomInput.value.trim();
-          if (!room) return;
-          
-          joinSpecificRoom(room);
         }
         
         // Connect to WebSocket for a specific room
@@ -445,16 +375,12 @@ app.get("/", (c) => {
             console.log('Connected to chat WebSocket');
             connectionStatus.textContent = 'Connected';
             connectionStatus.className = 'status connected';
-            messageInput.disabled = false;
-            sendButton.disabled = false;
           };
           
           chatSocket.onclose = () => {
             console.log('Disconnected from chat WebSocket');
             connectionStatus.textContent = 'Disconnected';
             connectionStatus.className = 'status disconnected';
-            messageInput.disabled = true;
-            sendButton.disabled = true;
             
             // Try to reconnect after delay
             setTimeout(() => {
@@ -487,37 +413,6 @@ app.get("/", (c) => {
           chatSocket.onerror = (error) => {
             console.error('WebSocket error:', error);
           };
-        }
-        
-        // Send a message
-        function sendMessage() {
-          const message = messageInput.value.trim();
-          if (!message || !chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
-          
-          const msgData = {
-            type: 'message',
-            userId: userId,
-            userName: userName,
-            message: message
-          };
-          
-          chatSocket.send(JSON.stringify(msgData));
-          
-          // Also persist to DB
-          fetch('/api/chat/room/' + currentRoom + '/message', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              userId: userId,
-              userName: userName,
-              content: message
-            })
-          });
-          
-          // Clear input
-          messageInput.value = '';
         }
         
         // Send an emoji message
