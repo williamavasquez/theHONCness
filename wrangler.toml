@@ -11,9 +11,10 @@ compatibility_flags = [ "nodejs_compat" ]
 [observability]
 enabled = true
 
-# [[kv_namespaces]]
-# binding = "MY_KV_NAMESPACE"
-# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+[[kv_namespaces]]
+binding = "WAITING_ROOM_KV"
+id = "__WAITING_ROOM_KV_ID__"
+preview_id = "__WAITING_ROOM_KV_PREVIEW_ID__"
 
 # [[r2_buckets]]
 # binding = "MY_BUCKET"
@@ -32,14 +33,23 @@ enabled = true
 name = "CHAT_ROOM"
 class_name = "ChatRoom"
 
+[[durable_objects.bindings]]
+name = "WAITING_ROOM"
+class_name = "WaitingRoom"
+
 [durable_objects]
 classes = [
-  { name = "ChatRoom", script_name = "spooking-honc" }
+  { name = "ChatRoom", script_name = "spooking-honc" },
+  { name = "WaitingRoom", script_name = "spooking-honc" }
 ]
 
 [[migrations]]
 tag = "v1"
 new_classes = ["ChatRoom"]
+
+[[migrations]]
+tag = "v2"
+new_classes = ["WaitingRoom"]
 
 [env.production]
 # Add production-specific settings here if needed

@@ -7,10 +7,13 @@ import { cors } from "hono/cors";
 import { html } from "hono/html";
 import { users, messages } from "./db/schema";
 import { ChatRoom } from "./durable-objects/ChatRoom";
+import { WaitingRoom } from "./durable-objects/WaitingRoom";
 
 type Bindings = {
   DATABASE_URL: string;
   CHAT_ROOM: DurableObjectNamespace;
+  WAITING_ROOM: DurableObjectNamespace;
+  WAITING_ROOM_KV: KVNamespace;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -134,16 +137,76 @@ app.get("/", (c) => {
           background-color: #fed7d7;
           color: #c53030;
         }
+        .waiting-room {
+          background-color: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          overflow: hidden;
+          margin-bottom: 20px;
+          padding: 20px;
+          text-align: center;
+        }
+        .waiting-info {
+          margin: 15px 0;
+          font-size: 16px;
+        }
+        .waiting-position {
+          font-weight: bold;
+          font-size: 24px;
+          color: #3182ce;
+          margin: 10px 0;
+        }
+        .tabs {
+          display: flex;
+          margin-bottom: 20px;
+        }
+        .tab {
+          flex: 1;
+          padding: 10px;
+          text-align: center;
+          background-color: #e2e8f0;
+          cursor: pointer;
+        }
+        .tab.active {
+          background-color: #4299e1;
+          color: white;
+        }
+        .tab-content {
+          display: none;
+        }
+        .tab-content.active {
+          display: block;
+        }
       </style>
     </head>
     <body>
       <div class="container">
         <h1>HONC Chat App</h1>
         
-        <div id="roomSelector" class="room-selector">
-          <h2>Join a Chat Room</h2>
-          <input type="text" id="roomInput" class="room-input" placeholder="Enter room name">
-          <button id="joinButton" class="join-button">Join Room</button>
+        <div class="tabs">
+          <div class="tab active" data-tab="waitingRoom">Find a Chat Partner</div>
+          <div class="tab" data-tab="joinRoom">Join Specific Room</div>
+        </div>
+        
+        <div id="waitingRoomTab" class="tab-content active">
+          <div class="waiting-room">
+            <h2>Waiting Room</h2>
+            <p>Join the waiting room to be automatically paired with another user for a chat.</p>
+            <div id="waitingStatus" class="waiting-info" style="display: none;">
+              <p>You are in the waiting room.</p>
+              <div class="waiting-position">Position: <span id="positionNumber">1</span></div>
+              <p id="waitingMessage">Please wait to be paired with someone...</p>
+            </div>
+            <button id="joinWaitingRoomButton" class="join-button">Join Waiting Room</button>
+          </div>
+        </div>
+        
+        <div id="joinRoomTab" class="tab-content">
+          <div id="roomSelector" class="room-selector">
+            <h2>Join a Specific Chat Room</h2>
+            <input type="text" id="roomInput" class="room-input" placeholder="Enter room name">
+            <button id="joinButton" class="join-button">Join Room</button>
+          </div>
         </div>
         
         <div id="chatApp" class="chat-app" style="display: none;">
@@ -165,6 +228,10 @@ app.get("/", (c) => {
 
       <script>
         // DOM elements
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const waitingRoomTab = document.getElementById('waitingRoomTab');
+        const joinRoomTab = document.getElementById('joinRoomTab');
         const roomSelector = document.getElementById('roomSelector');
         const chatApp = document.getElementById('chatApp');
         const roomInput = document.getElementById('roomInput');
@@ -174,58 +241,156 @@ app.get("/", (c) => {
         const chatMessages = document.getElementById('chatMessages');
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
+        const joinWaitingRoomButton = document.getElementById('joinWaitingRoomButton');
+        const waitingStatus = document.getElementById('waitingStatus');
+        const positionNumber = document.getElementById('positionNumber');
+        const waitingMessage = document.getElementById('waitingMessage');
         
         // State
         let currentRoom = null;
-        let socket = null;
+        let chatSocket = null;
+        let waitingSocket = null;
         let userName = 'User-' + Math.floor(Math.random() * 1000);
         let userId = Math.floor(Math.random() * 10000).toString();
         
+        // Tab switching
+        tabs.forEach(tab => {
+          tab.addEventListener('click', () => {
+            // Remove active class from all tabs and contents
+            tabs.forEach(t => t.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding content
+            tab.classList.add('active');
+            const tabId = tab.getAttribute('data-tab') + 'Tab';
+            document.getElementById(tabId).classList.add('active');
+          });
+        });
+        
         // Event Listeners
         joinButton.addEventListener('click', joinRoom);
+        joinWaitingRoomButton.addEventListener('click', joinWaitingRoom);
         sendButton.addEventListener('click', sendMessage);
         messageInput.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') sendMessage();
         });
         
-        // Join a room
+        // Join the waiting room
+        function joinWaitingRoom() {
+          joinWaitingRoomButton.disabled = true;
+          waitingStatus.style.display = 'block';
+          
+          // Connect to WebSocket for waiting room
+          const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+          const wsUrl = protocol + '//' + window.location.host + '/api/waiting-room/websocket';
+          
+          // Close existing connection if any
+          if (waitingSocket) {
+            waitingSocket.close();
+          }
+          
+          waitingSocket = new WebSocket(wsUrl);
+          
+          waitingSocket.onopen = () => {
+            console.log('Connected to waiting room');
+            // Send join message
+            waitingSocket.send(JSON.stringify({
+              type: 'join',
+              userId,
+              userName
+            }));
+          };
+          
+          waitingSocket.onclose = () => {
+            console.log('Disconnected from waiting room');
+            joinWaitingRoomButton.disabled = false;
+            
+            // Try to reconnect after delay if still in waiting room and not paired yet
+            if (waitingStatus.style.display === 'block' && chatApp.style.display === 'none') {
+              setTimeout(joinWaitingRoom, 5000);
+            }
+          };
+          
+          waitingSocket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+            joinWaitingRoomButton.disabled = false;
+            waitingMessage.textContent = 'Error connecting to waiting room. Please try again.';
+          };
+          
+          waitingSocket.onmessage = (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              
+              if (data.type === 'waiting') {
+                // Update position in queue
+                positionNumber.textContent = data.position;
+                if (data.message) {
+                  waitingMessage.textContent = data.message;
+                }
+              } else if (data.type === 'paired') {
+                // We've been paired with someone!
+                waitingStatus.style.display = 'none';
+                joinWaitingRoomButton.disabled = false;
+                
+                // Close waiting room connection
+                if (waitingSocket) {
+                  waitingSocket.close();
+                  waitingSocket = null;
+                }
+                
+                // Join the assigned chat room
+                joinSpecificRoom(data.roomId, data.partnerName);
+              }
+            } catch (error) {
+              console.error('Error handling waiting room message:', error);
+            }
+          };
+        }
+        
+        // Join a specific room (used both for manual joining and pairing)
+        function joinSpecificRoom(roomId, partnerName) {
+          currentRoom = roomId;
+          roomName.textContent = partnerName ? 'Chat with: ' + partnerName : 'Room: ' + roomId;
+          
+          // Hide tabs and show chat
+          waitingRoomTab.style.display = 'none';
+          joinRoomTab.style.display = 'none';
+          chatApp.style.display = 'block';
+          
+          // Connect to WebSocket for the chat room
+          connectWebSocket(roomId);
+        }
+        
+        // Manual room joining
         function joinRoom() {
           const room = roomInput.value.trim();
           if (!room) return;
           
-          currentRoom = room;
-          roomName.textContent = 'Room: ' + room;
-          
-          // Hide room selector and show chat
-          roomSelector.style.display = 'none';
-          chatApp.style.display = 'block';
-          
-          // Connect to WebSocket
-          connectWebSocket(room);
+          joinSpecificRoom(room);
         }
         
         // Connect to WebSocket for a specific room
         function connectWebSocket(room) {
           // Close existing connections
-          if (socket) {
-            socket.close();
+          if (chatSocket) {
+            chatSocket.close();
           }
           
           const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
           const wsUrl = protocol + '//' + window.location.host + '/api/chat/room/' + room + '/websocket';
           
-          socket = new WebSocket(wsUrl);
+          chatSocket = new WebSocket(wsUrl);
           
-          socket.onopen = () => {
-            console.log('Connected to WebSocket');
+          chatSocket.onopen = () => {
+            console.log('Connected to chat WebSocket');
             connectionStatus.textContent = 'Connected';
             connectionStatus.className = 'status connected';
             messageInput.disabled = false;
             sendButton.disabled = false;
           };
           
-          socket.onclose = () => {
-            console.log('Disconnected from WebSocket');
+          chatSocket.onclose = () => {
+            console.log('Disconnected from chat WebSocket');
             connectionStatus.textContent = 'Disconnected';
             connectionStatus.className = 'status disconnected';
             messageInput.disabled = true;
@@ -239,7 +404,7 @@ app.get("/", (c) => {
             }, 5000);
           };
           
-          socket.onmessage = (event) => {
+          chatSocket.onmessage = (event) => {
             try {
               const data = JSON.parse(event.data);
               
@@ -259,7 +424,7 @@ app.get("/", (c) => {
             }
           };
           
-          socket.onerror = (error) => {
+          chatSocket.onerror = (error) => {
             console.error('WebSocket error:', error);
           };
         }
@@ -267,7 +432,7 @@ app.get("/", (c) => {
         // Send a message
         function sendMessage() {
           const message = messageInput.value.trim();
-          if (!message || !socket || socket.readyState !== WebSocket.OPEN) return;
+          if (!message || !chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
           
           const msgData = {
             type: 'message',
@@ -276,7 +441,7 @@ app.get("/", (c) => {
             message: message
           };
           
-          socket.send(JSON.stringify(msgData));
+          chatSocket.send(JSON.stringify(msgData));
           
           // Also persist to DB
           fetch('/api/chat/room/' + currentRoom + '/message', {
@@ -363,7 +528,10 @@ app.get("/api/chat/room/:roomId/websocket", async (c) => {
   const newUrl = new URL(c.req.url);
   newUrl.pathname = "/websocket";
 
-  return chatRoom.fetch(new Request(newUrl, c.req));
+  // Get the original request to preserve WebSocket upgrade headers
+  const originalRequest = c.req.raw;
+
+  return chatRoom.fetch(new Request(newUrl, originalRequest));
 });
 
 // Get chat history for a specific room
@@ -401,6 +569,71 @@ app.post("/api/chat/room/:roomId/message", async (c) => {
   return c.json({ success: true });
 });
 
+// Waiting Room API routes
+app.get("/api/waiting-room/status", async (c) => {
+  // Use the singleton WaitingRoom Durable Object
+  const id = c.env.WAITING_ROOM.idFromName("default");
+  const waitingRoom = c.env.WAITING_ROOM.get(id);
+
+  // Forward the request to get status
+  const newUrl = new URL(c.req.url);
+  newUrl.pathname = "/status";
+
+  return waitingRoom.fetch(new Request(newUrl, c.req));
+});
+
+app.get("/api/waiting-room/websocket", async (c) => {
+  // Use the singleton WaitingRoom Durable Object
+  const id = c.env.WAITING_ROOM.idFromName("default");
+  const waitingRoom = c.env.WAITING_ROOM.get(id);
+
+  // Forward the request to the Durable Object
+  const newUrl = new URL(c.req.url);
+  newUrl.pathname = "/websocket";
+
+  // Get the original request to preserve WebSocket upgrade headers
+  const originalRequest = c.req.raw;
+
+  // Create a new request with all the original headers to maintain the WebSocket upgrade
+  return waitingRoom.fetch(new Request(newUrl, originalRequest));
+});
+
+// Get recent pairings from KV
+app.get("/api/waiting-room/recent-pairs", async (c) => {
+  const limitParam = c.req.query("limit");
+  const limit = limitParam ? parseInt(limitParam) : 10;
+
+  // List all keys with the pair: prefix
+  const keys = await c.env.WAITING_ROOM_KV.list({ prefix: "pair:" });
+
+  // Get the most recent pairs
+  const pairs: {
+    roomId: string;
+    user1: { id: string; name: string };
+    user2: { id: string; name: string };
+    pairedAt: number;
+  }[] = [];
+
+  for (const key of keys.keys.slice(0, limit)) {
+    const pair = await c.env.WAITING_ROOM_KV.get(key.name, "json");
+    if (pair) {
+      pairs.push({
+        roomId: key.name.replace("pair:", ""),
+        ...(pair as {
+          user1: { id: string; name: string };
+          user2: { id: string; name: string };
+          pairedAt: number;
+        }),
+      });
+    }
+  }
+
+  // Sort by pairedAt descending
+  pairs.sort((a, b) => b.pairedAt - a.pairedAt);
+
+  return c.json({ pairs });
+});
+
 /**
  * Serve a simplified api specification for your API
  * As of writing, this is just the list of routes and their methods.
@@ -432,4 +665,4 @@ app.use(
 export default app;
 
 // Export the ChatRoom class as a named export for Durable Objects
-export { ChatRoom };
+export { ChatRoom, WaitingRoom };
