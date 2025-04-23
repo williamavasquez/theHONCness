@@ -28,7 +28,7 @@ app.get("/", (c) => {
     <html lang="en">
     <head>
       <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
       <title>HONC Chat App</title>
       <style>
         body { 
@@ -36,21 +36,33 @@ app.get("/", (c) => {
           margin: 0;
           padding: 0;
           background-color: #f5f5f5;
+          touch-action: manipulation; /* Prevent double-tap to zoom */
+          height: 100%;
+          width: 100%;
+          overflow: hidden;
         }
         .container {
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-        h1 {
-          color: #333;
-          text-align: center;
+          width: 100%;
+          height: 100%;
+          margin: 0;
+          padding: 0;
+          position: relative;
         }
         .chat-app {
           background-color: white;
           border-radius: 8px;
           box-shadow: 0 2px 10px rgba(0,0,0,0.1);
           overflow: hidden;
+          height: 100vh;
+          max-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 100;
         }
         .chat-header {
           background-color: #4a5568;
@@ -61,17 +73,20 @@ app.get("/", (c) => {
           justify-content: space-between;
         }
         .chat-messages {
-          height: 400px;
+          flex: 1;
           overflow-y: auto;
           padding: 15px;
+          padding-bottom: 70px; /* Add padding to avoid messages being hidden behind keyboard */
           display: flex;
           flex-direction: column;
+          background-color: #f9fafc;
         }
         .message {
           margin-bottom: 10px;
           padding: 10px 15px;
-          border-radius: 5px;
-          max-width: 70%;
+          border-radius: 16px;
+          max-width: 80%;
+          word-break: break-word;
         }
         .user-message {
           background-color: #bee3f8;
@@ -86,51 +101,41 @@ app.get("/", (c) => {
         .message-form {
           display: flex;
           flex-direction: column;
-          padding: 15px;
+          padding: 10px;
           border-top: 1px solid #e2e8f0;
+          background-color: white;
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          z-index: 101;
         }
         .emoji-keyboard {
           display: grid;
-          grid-template-columns: repeat(10, 1fr);
-          gap: 5px;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
           background-color: #f9fafc;
           padding: 10px;
-          border-radius: 5px;
+          border-radius: 5px 5px 0 0;
           border: 1px solid #e2e8f0;
+          border-bottom: none;
         }
         .emoji-btn {
-          font-size: 24px;
+          font-size: 28px;
           background: none;
           border: none;
           cursor: pointer;
-          border-radius: 5px;
-          padding: 5px;
+          border-radius: 8px;
+          padding: 8px;
           transition: background-color 0.2s;
-        }
-        .emoji-btn:hover {
-          background-color: #e2e8f0;
-        }
-        .input-container {
+          height: 50px;
+          width: 100%;
           display: flex;
-          margin-top: 10px;
+          align-items: center;
+          justify-content: center;
         }
-        .room-selector {
-          margin-bottom: 20px;
-        }
-        .room-input {
-          padding: 10px;
-          border: 1px solid #e2e8f0;
-          border-radius: 5px;
-          margin-right: 10px;
-          width: 70%;
-        }
-        .join-button {
-          background-color: #48bb78;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          padding: 10px 15px;
-          cursor: pointer;
+        .emoji-btn:hover, .emoji-btn:active {
+          background-color: #e2e8f0;
         }
         .status {
           font-size: 14px;
@@ -147,43 +152,83 @@ app.get("/", (c) => {
         }
         .waiting-room {
           background-color: white;
-          border-radius: 8px;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
           overflow: hidden;
-          margin-bottom: 20px;
-          padding: 20px;
           text-align: center;
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 200;
         }
         .waiting-info {
           margin: 15px 0;
           font-size: 16px;
+          width: 100%;
         }
         .waiting-position {
           font-weight: bold;
-          font-size: 24px;
+          font-size: 28px;
           color: #3182ce;
-          margin: 10px 0;
+          margin: 15px 0;
         }
-        .tabs {
-          display: none;
-          margin-bottom: 20px;
+        
+        /* Media queries for responsive design */
+        @media (max-width: 480px) {
+          .container {
+            padding: 0;
+          }
+          .waiting-room {
+            border-radius: 0;
+            box-shadow: none;
+            padding: 15px;
+          }
+          .chat-app {
+            border-radius: 0;
+            box-shadow: none;
+          }
+          .emoji-keyboard {
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+            padding: 8px;
+          }
+          .emoji-btn {
+            font-size: 24px;
+            padding: 5px;
+            height: 44px;
+          }
+          .message {
+            max-width: 85%;
+            padding: 8px 12px;
+          }
+          .chat-messages {
+            padding-bottom: 80px;
+          }
         }
-        .tab {
-          flex: 1;
-          padding: 10px;
-          text-align: center;
-          background-color: #e2e8f0;
-          cursor: pointer;
+        
+        /* Make sure full screen works well in iOS */
+        @media screen and (orientation: portrait) {
+          html, body {
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+          }
         }
-        .tab.active {
-          background-color: #4299e1;
-          color: white;
-        }
-        .tab-content {
-          display: block;
-        }
-        .tab-content.active {
-          display: block;
+        
+        /* Handle notches and home indicators on iPhone X and newer */
+        @supports (padding: max(0px)) {
+          .message-form {
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+          }
+          .chat-messages {
+            padding-bottom: max(70px, calc(70px + env(safe-area-inset-bottom)));
+          }
         }
       </style>
     </head>
