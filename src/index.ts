@@ -85,6 +85,7 @@ app.get("/", (c) => {
         }
         .message-form {
           display: flex;
+          flex-direction: column;
           padding: 15px;
           border-top: 1px solid #e2e8f0;
         }
@@ -105,6 +106,32 @@ app.get("/", (c) => {
         }
         .send-button:hover {
           background-color: #3182ce;
+        }
+        .emoji-keyboard {
+          display: grid;
+          grid-template-columns: repeat(10, 1fr);
+          gap: 5px;
+          margin-bottom: 10px;
+          background-color: #f9fafc;
+          padding: 10px;
+          border-radius: 5px;
+          border: 1px solid #e2e8f0;
+        }
+        .emoji-btn {
+          font-size: 24px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          border-radius: 5px;
+          padding: 5px;
+          transition: background-color 0.2s;
+        }
+        .emoji-btn:hover {
+          background-color: #e2e8f0;
+        }
+        .input-container {
+          display: flex;
+          margin-top: 10px;
         }
         .room-selector {
           margin-bottom: 20px;
@@ -220,8 +247,32 @@ app.get("/", (c) => {
           </div>
           
           <div class="message-form">
-            <input type="text" id="messageInput" class="message-input" placeholder="Type a message...">
-            <button id="sendButton" class="send-button">Send</button>
+            <div class="emoji-keyboard">
+              <button class="emoji-btn" data-emoji="😊">😊</button>
+              <button class="emoji-btn" data-emoji="😂">😂</button>
+              <button class="emoji-btn" data-emoji="😍">😍</button>
+              <button class="emoji-btn" data-emoji="🥰">🥰</button>
+              <button class="emoji-btn" data-emoji="😎">😎</button>
+              <button class="emoji-btn" data-emoji="👍">👍</button>
+              <button class="emoji-btn" data-emoji="❤️">❤️</button>
+              <button class="emoji-btn" data-emoji="🔥">🔥</button>
+              <button class="emoji-btn" data-emoji="🙌">🙌</button>
+              <button class="emoji-btn" data-emoji="👏">👏</button>
+              <button class="emoji-btn" data-emoji="🎉">🎉</button>
+              <button class="emoji-btn" data-emoji="🤔">🤔</button>
+              <button class="emoji-btn" data-emoji="😭">😭</button>
+              <button class="emoji-btn" data-emoji="🥺">🥺</button>
+              <button class="emoji-btn" data-emoji="😢">😢</button>
+              <button class="emoji-btn" data-emoji="😡">😡</button>
+              <button class="emoji-btn" data-emoji="👋">👋</button>
+              <button class="emoji-btn" data-emoji="✨">✨</button>
+              <button class="emoji-btn" data-emoji="💯">💯</button>
+              <button class="emoji-btn" data-emoji="🙏">🙏</button>
+            </div>
+            <div class="input-container">
+              <input type="text" id="messageInput" class="message-input" placeholder="Type a message...">
+              <button id="sendButton" class="send-button">Send</button>
+            </div>
           </div>
         </div>
       </div>
@@ -273,6 +324,16 @@ app.get("/", (c) => {
         sendButton.addEventListener('click', sendMessage);
         messageInput.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') sendMessage();
+        });
+        
+        // Set up emoji keyboard
+        document.querySelectorAll('.emoji-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const emoji = btn.getAttribute('data-emoji');
+            if (emoji) {
+              sendEmojiMessage(emoji);
+            }
+          });
         });
         
         // Join the waiting room
@@ -457,6 +518,33 @@ app.get("/", (c) => {
           
           // Clear input
           messageInput.value = '';
+        }
+        
+        // Send an emoji message
+        function sendEmojiMessage(emoji) {
+          if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
+          
+          const msgData = {
+            type: 'message',
+            userId: userId,
+            userName: userName,
+            message: emoji
+          };
+          
+          chatSocket.send(JSON.stringify(msgData));
+          
+          // Also persist to DB
+          fetch('/api/chat/room/' + currentRoom + '/message', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              userId: userId,
+              userName: userName,
+              content: emoji
+            })
+          });
         }
         
         // Add a message to the chat display
