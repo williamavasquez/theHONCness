@@ -1,0 +1,45 @@
+name = "spooking-honc"
+compatibility_date = "2025-02-04"
+compatibility_flags = [ "nodejs_compat" ]
+
+# [vars]
+# MY_VAR = "my-variable"
+
+# Workers Logs
+# Docs: https://developers.cloudflare.com/workers/observability/logs/workers-logs/
+# Configuration: https://developers.cloudflare.com/workers/observability/logs/workers-logs/#enable-workers-logs
+[observability]
+enabled = true
+
+# [[kv_namespaces]]
+# binding = "MY_KV_NAMESPACE"
+# id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# [[r2_buckets]]
+# binding = "MY_BUCKET"
+# bucket_name = "my-bucket"
+
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "my-database"
+# database_id = ""
+
+# [ai]
+# binding = "AI"
+
+# Durable Objects configuration
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
+[durable_objects]
+classes = [
+  { name = "ChatRoom", script_name = "spooking-honc" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["ChatRoom"]
+
+[env.production]
+# Add production-specific settings here if needed

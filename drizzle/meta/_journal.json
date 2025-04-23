@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1745369163795,
+      "tag": "0000_typical_emma_frost",
+      "breakpoints": true
+    }
+  ]
+}
