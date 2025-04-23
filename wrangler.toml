@@ -35,14 +35,24 @@ preview_id = "__WAITING_ROOM_KV_PREVIEW_ID__"
 name = "WAITING_ROOM"
 class_name = "WaitingRoom"
 
+[[durable_objects.bindings]]
+name = "CHAT_ROOM"
+class_name = "ChatRoom"
+
 [durable_objects]
 classes = [
+  { name = "ChatRoom", script_name = "spooking-honc" },
   { name = "WaitingRoom", script_name = "spooking-honc" }
 ]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["WaitingRoom"]
+
+
+[[migrations]]
+tag = "v2"
+new_classes = ["ChatRoom"]
 
 [env.production]
 # Add production-specific settings here if needed
