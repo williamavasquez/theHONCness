@@ -82,21 +82,30 @@ app.get("/", (c) => {
           background-color: #f9fafc;
         }
         .message {
-          margin-bottom: 10px;
-          padding: 10px 15px;
-          border-radius: 16px;
+          margin: 15px 5px;
           max-width: 80%;
-          word-break: break-word;
+          display: flex;
+          justify-content: center;
+          align-items: center;
         }
         .user-message {
-          background-color: #bee3f8;
-          color: #2c5282;
+          background-color: transparent;
           align-self: flex-end;
         }
         .other-message {
-          background-color: #e2e8f0;
-          color: #2d3748;
+          background-color: transparent;
           align-self: flex-start;
+        }
+        .emoji-message {
+          font-size: 64px;
+          line-height: 1;
+          padding: 0;
+          margin: 0;
+          text-align: center;
+          transition: transform 0.1s ease;
+        }
+        .user-message .emoji-message {
+          transform: scale(1.1);
         }
         .message-form {
           display: flex;
@@ -121,14 +130,14 @@ app.get("/", (c) => {
           border-bottom: none;
         }
         .emoji-btn {
-          font-size: 28px;
+          font-size: 32px;
           background: none;
           border: none;
           cursor: pointer;
           border-radius: 8px;
           padding: 8px;
-          transition: background-color 0.2s;
-          height: 50px;
+          transition: background-color 0.2s, transform 0.1s;
+          height: 60px;
           width: 100%;
           display: flex;
           align-items: center;
@@ -136,6 +145,7 @@ app.get("/", (c) => {
         }
         .emoji-btn:hover, .emoji-btn:active {
           background-color: #e2e8f0;
+          transform: scale(1.1);
         }
         .status {
           font-size: 14px;
@@ -204,7 +214,10 @@ app.get("/", (c) => {
           }
           .message {
             max-width: 85%;
-            padding: 8px 12px;
+            margin: 12px 5px;
+          }
+          .emoji-message {
+            font-size: 54px;
           }
           .chat-messages {
             padding-bottom: 80px;
@@ -491,17 +504,11 @@ app.get("/", (c) => {
           const messageDiv = document.createElement('div');
           messageDiv.className = 'message ' + (msg.userId === userId ? 'user-message' : 'other-message');
           
-          const header = document.createElement('div');
-          header.style.fontSize = '12px';
-          header.style.marginBottom = '5px';
-          
-          const time = new Date(msg.timestamp).toLocaleTimeString();
-          header.textContent = msg.userName + ' • ' + time;
-          
+          // Just display the emoji in large font
           const content = document.createElement('div');
+          content.className = 'emoji-message';
           content.textContent = msg.message;
           
-          messageDiv.appendChild(header);
           messageDiv.appendChild(content);
           chatMessages.appendChild(messageDiv);
           
