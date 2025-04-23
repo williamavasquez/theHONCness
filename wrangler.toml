@@ -13,7 +13,7 @@ enabled = true
 
 [[kv_namespaces]]
 binding = "WAITING_ROOM_KV"
-id = "__WAITING_ROOM_KV_ID__"
+id = "bb8d210bd06e4d7aaf6529b09c681520"
 preview_id = "__WAITING_ROOM_KV_PREVIEW_ID__"
 
 # [[r2_buckets]]
@@ -30,26 +30,17 @@ preview_id = "__WAITING_ROOM_KV_PREVIEW_ID__"
 
 # Durable Objects configuration
 [[durable_objects.bindings]]
-name = "CHAT_ROOM"
-class_name = "ChatRoom"
-
-[[durable_objects.bindings]]
 name = "WAITING_ROOM"
 class_name = "WaitingRoom"
 
 [durable_objects]
 classes = [
-  { name = "ChatRoom", script_name = "spooking-honc" },
   { name = "WaitingRoom", script_name = "spooking-honc" }
 ]
 
 [[migrations]]
 tag = "v1"
-new_classes = ["ChatRoom"]
-
-[[migrations]]
-tag = "v2"
-new_classes = ["WaitingRoom"]
+new_sqlite_classes = ["WaitingRoom"]
 
 [env.production]
 # Add production-specific settings here if needed
