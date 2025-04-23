@@ -191,13 +191,13 @@ app.get("/", (c) => {
         <div id="waitingRoomTab" class="tab-content active">
           <div class="waiting-room">
             <h2>Waiting Room</h2>
-            <p>Join the waiting room to be automatically paired with another user for a chat.</p>
-            <div id="waitingStatus" class="waiting-info" style="display: none;">
+            <p>Looking for a chat partner... Please wait while we pair you with someone.</p>
+            <div id="waitingStatus" class="waiting-info">
               <p>You are in the waiting room.</p>
               <div class="waiting-position">Position: <span id="positionNumber">1</span></div>
               <p id="waitingMessage">Please wait to be paired with someone...</p>
             </div>
-            <button id="joinWaitingRoomButton" class="join-button">Join Waiting Room</button>
+            <button id="joinWaitingRoomButton" class="join-button" style="display: none;">Join Waiting Room</button>
           </div>
         </div>
         
@@ -277,8 +277,7 @@ app.get("/", (c) => {
         
         // Join the waiting room
         function joinWaitingRoom() {
-          joinWaitingRoomButton.disabled = true;
-          waitingStatus.style.display = 'block';
+          // No longer need to show waitingStatus or disable the button as they're handled in HTML
           
           // Connect to WebSocket for waiting room
           const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -303,18 +302,19 @@ app.get("/", (c) => {
           
           waitingSocket.onclose = () => {
             console.log('Disconnected from waiting room');
-            joinWaitingRoomButton.disabled = false;
             
             // Try to reconnect after delay if still in waiting room and not paired yet
-            if (waitingStatus.style.display === 'block' && chatApp.style.display === 'none') {
+            if (chatApp.style.display === 'none') {
               setTimeout(joinWaitingRoom, 5000);
             }
           };
           
           waitingSocket.onerror = (error) => {
             console.error('WebSocket error:', error);
-            joinWaitingRoomButton.disabled = false;
-            waitingMessage.textContent = 'Error connecting to waiting room. Please try again.';
+            waitingMessage.textContent = 'Error connecting to waiting room. Attempting to reconnect...';
+            
+            // Try to reconnect after error
+            setTimeout(joinWaitingRoom, 3000);
           };
           
           waitingSocket.onmessage = (event) => {
@@ -329,8 +329,7 @@ app.get("/", (c) => {
                 }
               } else if (data.type === 'paired') {
                 // We've been paired with someone!
-                waitingStatus.style.display = 'none';
-                joinWaitingRoomButton.disabled = false;
+                // No need to hide/show elements that are already properly set up
                 
                 // Close waiting room connection
                 if (waitingSocket) {
@@ -482,6 +481,12 @@ app.get("/", (c) => {
           // Scroll to bottom
           chatMessages.scrollTop = chatMessages.scrollHeight;
         }
+        
+        // Automatically join waiting room on page load
+        document.addEventListener('DOMContentLoaded', () => {
+          // Auto-join waiting room when page loads
+          joinWaitingRoom();
+        });
       </script>
     </body>
     </html>`
