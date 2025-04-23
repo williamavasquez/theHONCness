@@ -189,8 +189,6 @@ app.get("/", (c) => {
     </head>
     <body>
       <div class="container">
-        <h1>HONC Chat App</h1>
-        
         <div id="waitingRoomTab" class="tab-content">
           <div class="waiting-room">
             <h2>Waiting Room</h2>
@@ -206,7 +204,7 @@ app.get("/", (c) => {
         
         <div id="chatApp" class="chat-app" style="display: none;">
           <div class="chat-header">
-            <div id="roomName">Room: General</div>
+            <div id="roomName">HONC Chat App</div>
             <div id="connectionStatus" class="status disconnected">Disconnected</div>
           </div>
           
@@ -349,7 +347,8 @@ app.get("/", (c) => {
         // Join a specific room (used for pairing)
         function joinSpecificRoom(roomId, partnerName) {
           currentRoom = roomId;
-          roomName.textContent = partnerName ? 'Chat with: ' + partnerName : 'Room: ' + roomId;
+          // Always keep the header as "HONC Chat App" regardless of partner
+          roomName.textContent = "HONC Chat App";
           
           // Hide waiting room and show chat
           waitingRoomTab.style.display = 'none';
