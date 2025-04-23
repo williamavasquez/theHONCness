@@ -2,6 +2,8 @@ name = "spooking-honc"
 compatibility_date = "2025-02-04"
 compatibility_flags = [ "nodejs_compat" ]
 
+main = "src/index.ts"
+
 # [vars]
 # MY_VAR = "my-variable"
 
