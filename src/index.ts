@@ -28,7 +28,7 @@ app.get("/", (c) => {
     <html lang="en">
     <head>
       <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
       <title>HONC Chat App</title>
       <style>
         body { 
@@ -36,21 +36,33 @@ app.get("/", (c) => {
           margin: 0;
           padding: 0;
           background-color: #f5f5f5;
+          touch-action: manipulation; /* Prevent double-tap to zoom */
+          height: 100%;
+          width: 100%;
+          overflow: hidden;
         }
         .container {
-          max-width: 800px;
-          margin: 0 auto;
-          padding: 20px;
-        }
-        h1 {
-          color: #333;
-          text-align: center;
+          width: 100%;
+          height: 100%;
+          margin: 0;
+          padding: 0;
+          position: relative;
         }
         .chat-app {
           background-color: white;
           border-radius: 8px;
           box-shadow: 0 2px 10px rgba(0,0,0,0.1);
           overflow: hidden;
+          height: 100vh;
+          max-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 100;
         }
         .chat-header {
           background-color: #4a5568;
@@ -61,95 +73,79 @@ app.get("/", (c) => {
           justify-content: space-between;
         }
         .chat-messages {
-          height: 400px;
+          flex: 1;
           overflow-y: auto;
           padding: 15px;
+          padding-bottom: 70px; /* Add padding to avoid messages being hidden behind keyboard */
           display: flex;
           flex-direction: column;
+          background-color: #f9fafc;
         }
         .message {
-          margin-bottom: 10px;
-          padding: 10px 15px;
-          border-radius: 5px;
-          max-width: 70%;
+          margin: 15px 5px;
+          max-width: 80%;
+          display: flex;
+          justify-content: center;
+          align-items: center;
         }
         .user-message {
-          background-color: #bee3f8;
-          color: #2c5282;
+          background-color: transparent;
           align-self: flex-end;
         }
         .other-message {
-          background-color: #e2e8f0;
-          color: #2d3748;
+          background-color: transparent;
           align-self: flex-start;
+        }
+        .emoji-message {
+          font-size: 64px;
+          line-height: 1;
+          padding: 0;
+          margin: 0;
+          text-align: center;
+          transition: transform 0.1s ease;
+        }
+        .user-message .emoji-message {
+          transform: scale(1.1);
         }
         .message-form {
           display: flex;
           flex-direction: column;
-          padding: 15px;
-          border-top: 1px solid #e2e8f0;
-        }
-        .message-input {
-          flex: 1;
           padding: 10px;
-          border: 1px solid #e2e8f0;
-          border-radius: 5px;
-          margin-right: 10px;
-        }
-        .send-button {
-          background-color: #4299e1;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          padding: 10px 15px;
-          cursor: pointer;
-        }
-        .send-button:hover {
-          background-color: #3182ce;
+          border-top: 1px solid #e2e8f0;
+          background-color: white;
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          z-index: 101;
         }
         .emoji-keyboard {
           display: grid;
-          grid-template-columns: repeat(10, 1fr);
-          gap: 5px;
-          margin-bottom: 10px;
+          grid-template-columns: repeat(5, 1fr);
+          gap: 8px;
           background-color: #f9fafc;
           padding: 10px;
-          border-radius: 5px;
+          border-radius: 5px 5px 0 0;
           border: 1px solid #e2e8f0;
+          border-bottom: none;
         }
         .emoji-btn {
-          font-size: 24px;
+          font-size: 32px;
           background: none;
           border: none;
           cursor: pointer;
-          border-radius: 5px;
-          padding: 5px;
-          transition: background-color 0.2s;
-        }
-        .emoji-btn:hover {
-          background-color: #e2e8f0;
-        }
-        .input-container {
+          border-radius: 8px;
+          padding: 8px;
+          transition: background-color 0.2s, transform 0.1s;
+          height: 60px;
+          width: 100%;
           display: flex;
-          margin-top: 10px;
+          align-items: center;
+          justify-content: center;
         }
-        .room-selector {
-          margin-bottom: 20px;
-        }
-        .room-input {
-          padding: 10px;
-          border: 1px solid #e2e8f0;
-          border-radius: 5px;
-          margin-right: 10px;
-          width: 70%;
-        }
-        .join-button {
-          background-color: #48bb78;
-          color: white;
-          border: none;
-          border-radius: 5px;
-          padding: 10px 15px;
-          cursor: pointer;
+        .emoji-btn:hover, .emoji-btn:active {
+          background-color: #e2e8f0;
+          transform: scale(1.1);
         }
         .status {
           font-size: 14px;
@@ -166,56 +162,92 @@ app.get("/", (c) => {
         }
         .waiting-room {
           background-color: white;
-          border-radius: 8px;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
           overflow: hidden;
-          margin-bottom: 20px;
-          padding: 20px;
           text-align: center;
+          height: 100vh;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          z-index: 200;
         }
         .waiting-info {
           margin: 15px 0;
           font-size: 16px;
+          width: 100%;
         }
         .waiting-position {
           font-weight: bold;
-          font-size: 24px;
+          font-size: 28px;
           color: #3182ce;
-          margin: 10px 0;
+          margin: 15px 0;
         }
-        .tabs {
-          display: flex;
-          margin-bottom: 20px;
+        
+        /* Media queries for responsive design */
+        @media (max-width: 480px) {
+          .container {
+            padding: 0;
+          }
+          .waiting-room {
+            border-radius: 0;
+            box-shadow: none;
+            padding: 15px;
+          }
+          .chat-app {
+            border-radius: 0;
+            box-shadow: none;
+          }
+          .emoji-keyboard {
+            grid-template-columns: repeat(5, 1fr);
+            gap: 5px;
+            padding: 8px;
+          }
+          .emoji-btn {
+            font-size: 24px;
+            padding: 5px;
+            height: 44px;
+          }
+          .message {
+            max-width: 85%;
+            margin: 12px 5px;
+          }
+          .emoji-message {
+            font-size: 54px;
+          }
+          .chat-messages {
+            padding-bottom: 80px;
+          }
         }
-        .tab {
-          flex: 1;
-          padding: 10px;
-          text-align: center;
-          background-color: #e2e8f0;
-          cursor: pointer;
+        
+        /* Make sure full screen works well in iOS */
+        @media screen and (orientation: portrait) {
+          html, body {
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+          }
         }
-        .tab.active {
-          background-color: #4299e1;
-          color: white;
-        }
-        .tab-content {
-          display: none;
-        }
-        .tab-content.active {
-          display: block;
+        
+        /* Handle notches and home indicators on iPhone X and newer */
+        @supports (padding: max(0px)) {
+          .message-form {
+            padding-bottom: max(10px, env(safe-area-inset-bottom));
+          }
+          .chat-messages {
+            padding-bottom: max(70px, calc(70px + env(safe-area-inset-bottom)));
+          }
         }
       </style>
     </head>
     <body>
       <div class="container">
-        <h1>HONC Chat App</h1>
-        
-        <div class="tabs">
-          <div class="tab active" data-tab="waitingRoom">Find a Chat Partner</div>
-          <div class="tab" data-tab="joinRoom">Join Specific Room</div>
-        </div>
-        
-        <div id="waitingRoomTab" class="tab-content active">
+        <div id="waitingRoomTab" class="tab-content">
           <div class="waiting-room">
             <h2>Waiting Room</h2>
             <p>Looking for a chat partner... Please wait while we pair you with someone.</p>
@@ -228,17 +260,9 @@ app.get("/", (c) => {
           </div>
         </div>
         
-        <div id="joinRoomTab" class="tab-content">
-          <div id="roomSelector" class="room-selector">
-            <h2>Join a Specific Chat Room</h2>
-            <input type="text" id="roomInput" class="room-input" placeholder="Enter room name">
-            <button id="joinButton" class="join-button">Join Room</button>
-          </div>
-        </div>
-        
         <div id="chatApp" class="chat-app" style="display: none;">
           <div class="chat-header">
-            <div id="roomName">Room: General</div>
+            <div id="roomName">HONC Chat App</div>
             <div id="connectionStatus" class="status disconnected">Disconnected</div>
           </div>
           
@@ -269,10 +293,6 @@ app.get("/", (c) => {
               <button class="emoji-btn" data-emoji="💯">💯</button>
               <button class="emoji-btn" data-emoji="🙏">🙏</button>
             </div>
-            <div class="input-container">
-              <input type="text" id="messageInput" class="message-input" placeholder="Type a message...">
-              <button id="sendButton" class="send-button">Send</button>
-            </div>
           </div>
         </div>
       </div>
@@ -282,16 +302,10 @@ app.get("/", (c) => {
         const tabs = document.querySelectorAll('.tab');
         const tabContents = document.querySelectorAll('.tab-content');
         const waitingRoomTab = document.getElementById('waitingRoomTab');
-        const joinRoomTab = document.getElementById('joinRoomTab');
-        const roomSelector = document.getElementById('roomSelector');
         const chatApp = document.getElementById('chatApp');
-        const roomInput = document.getElementById('roomInput');
-        const joinButton = document.getElementById('joinButton');
         const roomName = document.getElementById('roomName');
         const connectionStatus = document.getElementById('connectionStatus');
         const chatMessages = document.getElementById('chatMessages');
-        const messageInput = document.getElementById('messageInput');
-        const sendButton = document.getElementById('sendButton');
         const joinWaitingRoomButton = document.getElementById('joinWaitingRoomButton');
         const waitingStatus = document.getElementById('waitingStatus');
         const positionNumber = document.getElementById('positionNumber');
@@ -304,27 +318,8 @@ app.get("/", (c) => {
         let userName = 'User-' + Math.floor(Math.random() * 1000);
         let userId = Math.floor(Math.random() * 10000).toString();
         
-        // Tab switching
-        tabs.forEach(tab => {
-          tab.addEventListener('click', () => {
-            // Remove active class from all tabs and contents
-            tabs.forEach(t => t.classList.remove('active'));
-            tabContents.forEach(c => c.classList.remove('active'));
-            
-            // Add active class to clicked tab and corresponding content
-            tab.classList.add('active');
-            const tabId = tab.getAttribute('data-tab') + 'Tab';
-            document.getElementById(tabId).classList.add('active');
-          });
-        });
-        
         // Event Listeners
-        joinButton.addEventListener('click', joinRoom);
         joinWaitingRoomButton.addEventListener('click', joinWaitingRoom);
-        sendButton.addEventListener('click', sendMessage);
-        messageInput.addEventListener('keypress', (e) => {
-          if (e.key === 'Enter') sendMessage();
-        });
         
         // Set up emoji keyboard
         document.querySelectorAll('.emoji-btn').forEach(btn => {
@@ -407,26 +402,18 @@ app.get("/", (c) => {
           };
         }
         
-        // Join a specific room (used both for manual joining and pairing)
+        // Join a specific room (used for pairing)
         function joinSpecificRoom(roomId, partnerName) {
           currentRoom = roomId;
-          roomName.textContent = partnerName ? 'Chat with: ' + partnerName : 'Room: ' + roomId;
+          // Always keep the header as "HONC Chat App" regardless of partner
+          roomName.textContent = "HONC Chat App";
           
-          // Hide tabs and show chat
+          // Hide waiting room and show chat
           waitingRoomTab.style.display = 'none';
-          joinRoomTab.style.display = 'none';
           chatApp.style.display = 'block';
           
           // Connect to WebSocket for the chat room
           connectWebSocket(roomId);
-        }
-        
-        // Manual room joining
-        function joinRoom() {
-          const room = roomInput.value.trim();
-          if (!room) return;
-          
-          joinSpecificRoom(room);
         }
         
         // Connect to WebSocket for a specific room
@@ -445,16 +432,12 @@ app.get("/", (c) => {
             console.log('Connected to chat WebSocket');
             connectionStatus.textContent = 'Connected';
             connectionStatus.className = 'status connected';
-            messageInput.disabled = false;
-            sendButton.disabled = false;
           };
           
           chatSocket.onclose = () => {
             console.log('Disconnected from chat WebSocket');
             connectionStatus.textContent = 'Disconnected';
             connectionStatus.className = 'status disconnected';
-            messageInput.disabled = true;
-            sendButton.disabled = true;
             
             // Try to reconnect after delay
             setTimeout(() => {
@@ -489,37 +472,6 @@ app.get("/", (c) => {
           };
         }
         
-        // Send a message
-        function sendMessage() {
-          const message = messageInput.value.trim();
-          if (!message || !chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
-          
-          const msgData = {
-            type: 'message',
-            userId: userId,
-            userName: userName,
-            message: message
-          };
-          
-          chatSocket.send(JSON.stringify(msgData));
-          
-          // Also persist to DB
-          fetch('/api/chat/room/' + currentRoom + '/message', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              userId: userId,
-              userName: userName,
-              content: message
-            })
-          });
-          
-          // Clear input
-          messageInput.value = '';
-        }
-        
         // Send an emoji message
         function sendEmojiMessage(emoji) {
           if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) return;
@@ -552,17 +504,11 @@ app.get("/", (c) => {
           const messageDiv = document.createElement('div');
           messageDiv.className = 'message ' + (msg.userId === userId ? 'user-message' : 'other-message');
           
-          const header = document.createElement('div');
-          header.style.fontSize = '12px';
-          header.style.marginBottom = '5px';
-          
-          const time = new Date(msg.timestamp).toLocaleTimeString();
-          header.textContent = msg.userName + ' • ' + time;
-          
+          // Just display the emoji in large font
           const content = document.createElement('div');
+          content.className = 'emoji-message';
           content.textContent = msg.message;
           
-          messageDiv.appendChild(header);
           messageDiv.appendChild(content);
           chatMessages.appendChild(messageDiv);
           
